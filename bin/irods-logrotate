@@ -1,0 +1,109 @@
+#!/bin/bash
+
+set -e
+
+txtlogs=(control_log.txt setup_log.txt)
+datedlogs=(reLog rodsLog rodsServerLog)
+
+declare -A DATES
+
+shopt -s nullglob
+
+mkdir_date() {
+	local datestr="$1"
+	if [ ! -e "$datestr" ]; then
+		mkdir "$datestr"
+		if [[ $EUID -eq 0 ]]; then
+			chown irods:irods "$datestr"
+		fi
+	fi
+}
+
+get_counter_int() {
+	local datestr="$1"
+	local counter_int_file="${datestr}/.runcounter"
+	local counter_int="0"
+
+	if [ -f "${counter_int_file}" ]; then
+	    counter_int="$(<"${counter_int_file}")"
+	fi
+
+	echo "$counter_int"
+}
+
+get_counter_num() {
+	local datestr="$1"
+	local counter_int="$(get_counter_int "${datestr}")"
+	local counter_num="$(printf "%04d" "${counter_int}")"
+
+	echo "$counter_num"
+}
+
+bump_counter() {
+	local datestr="$1"
+	if [ -e "$datestr" ]; then
+		local counter_int="$(get_counter_int "${datestr}")"
+		local counter_int_file="${datestr}/.runcounter"
+		counter_int=$((counter_int+1))
+		echo -n "${counter_int}" > "${counter_int_file}"
+	fi
+}
+
+rotate() {
+	local datestr="$1"
+	local fname_in="$2"
+	local fname_out_base="$3"
+	local fname_out_counter="$(get_counter_num "${datestr}")"
+	local fname_out="${fname_out_base}.${fname_out_counter}"
+
+	mkdir_date "$datestr"
+
+	mv "$fname_in" "${datestr}/${fname_out}"
+
+	DATES[$datestr]=1
+}
+
+rotate_fnametxt() {
+	local dateval
+	local datestr
+	local fname="$1"
+	local birth="$(stat -c%W "$fname")"
+	local mtime="$(stat -c%Y "$fname")"
+	local ctime="$(stat -c%Z "$fname")"
+	if [[ $birth -ne 0 ]]; then
+		dateval="$birth"
+	elif [[ $ctime -lt $mtime ]]; then
+		dateval="$ctime"
+	else
+		dateval="$mtime"
+	fi
+	datestr="$(date -d @"$dateval" +%Y.%m.%d)"
+
+	rotate "${datestr}" "${fname}" "${fname}"
+}
+
+rotate_fnamedate() {
+	local fname="$1"
+	local fname_base="$2"
+	local fname_date="${fname#"${fname_base}."}"
+
+	rotate "${fname_date}" "${fname}" "${fname_base}"
+}
+
+cd /var/lib/irods/log
+
+for txtlog in "${txtlogs[@]}"; do
+	if [ -e "${txtlog}" ]; then
+		rotate_fnametxt "${txtlog}"
+	fi
+done
+
+for datedlog_bname in "${datedlogs[@]}"; do
+	for datedlog in ${datedlog_bname}.*; do
+		rotate_fnamedate "${datedlog}" "${datedlog_bname}"
+	done
+done
+
+for logdate in "${!DATES[@]}"; do
+	bump_counter "${logdate}"
+done

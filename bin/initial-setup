@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [ "$(hostname)" != "$SERVER" ]; then
+  echo "Please set hostname to $SERVER, needed for irods to run properly."
+  sleep 60
+  exit 1
+fi
+
+setup-vault
+setup-irods
+setup-ssl
+setup-pam
