@@ -63,14 +63,7 @@ RUN yum localinstall -y https://github.com/rr-debugger/rr/releases/download/5.4.
 RUN yum -y install devtoolset-10 && \
     yum clean all && \
     rm -rf /var/cache/yum /tmp/*
-ADD https://github.com/koutheir/libcxx-pretty-printers/archive/refs/heads/master.tar.gz /tmp/gdbinit-libcxx.tar.gz
-RUN tar -x -C /tmp -f /tmp/gdbinit-libcxx.tar.gz && \
-    mkdir -p /root/gdb/py && \
-    mv /tmp/libcxx-pretty-printers-master/src/libcxx /root/gdb/py && \
-    rm -rf /tmp/libcxx-pretty-printers-master /tmp/gdbinit-libcxx.tar.gz
-ADD https://raw.githubusercontent.com/llvm/llvm-project/main/libcxx/utils/gdb/libcxx/printers.py /root/gdb/py/libcxx/
-ADD http://www.yolinux.com/TUTORIALS/src/dbinit_stl_views-1.03.txt /root/gdb/stl-views.gdb
-ADD irods/gdbinit /root/.gdbinit
+
 RUN mkdir -p \
         /opt/rh/devtoolset-10/root/usr/share/gdb/auto-load.bak/usr/lib \
         /opt/rh/devtoolset-10/root/usr/share/gdb/auto-load.bak/usr/lib64 \
@@ -82,6 +75,19 @@ RUN mkdir -p \
        /opt/rh/devtoolset-10/root/usr/share/gdb/auto-load.bak/usr/lib64 && \
     mv /opt/rh/devtoolset-10/root/usr/share/gdb/python/libstdcxx \
        /opt/rh/devtoolset-10/root/usr/share/gdb/python.bak
+
+ADD https://github.com/koutheir/libcxx-pretty-printers/archive/refs/heads/master.tar.gz /tmp/gdb/libcxx-printers.tar.gz
+ADD gdb/auto-load-libcxx.py.in /tmp/gdb/
+RUN sed 's|@LIBDIR@|/usr/lib|' /tmp/gdb/auto-load-libcxx.py.in > /opt/rh/devtoolset-10/root/usr/share/gdb/auto-load/usr/lib/libcxx.py && \
+    sed 's|@LIBDIR@|/usr/lib64|' /tmp/gdb/auto-load-libcxx.py.in > /opt/rh/devtoolset-10/root/usr/share/gdb/auto-load/usr/lib64/libcxx.py && \
+    tar -x -C /tmp/gdb -f /tmp/gdb/libcxx-printers.tar.gz && \
+    mv /tmp/gdb/libcxx-pretty-printers-master/src/libcxx \
+       /opt/rh/devtoolset-10/root/usr/share/gdb/python && \
+    rm -rf /tmp/gdb
+ADD https://raw.githubusercontent.com/llvm/llvm-project/main/libcxx/utils/gdb/libcxx/printers.py /opt/rh/devtoolset-10/root/usr/share/gdb/python/libcxx/
+ADD http://www.yolinux.com/TUTORIALS/src/dbinit_stl_views-1.03.txt /opt/rh/devtoolset-10/root/etc/gdbinit.d/stl-views.gdb
+RUN chmod 644 /opt/rh/devtoolset-10/root/usr/share/gdb/python/libcxx/printers.py && \
+    chmod 644 /opt/rh/devtoolset-10/root/etc/gdbinit.d/stl-views.gdb
 
 # lldb
 RUN yum -y install llvm-toolset-7 && \
