@@ -29,7 +29,7 @@ CTRL_PLANE_KEY="$(<irods/keys/ctrl_plane.key)"
 
 mkdir -p logs.new
 
-echo docker run -d --name $IRODS_NAME --link $POSTGRESQL_NAME \
+docker run -d --name $IRODS_NAME --link $POSTGRESQL_NAME \
   --hostname $IRODS_HOST \
   --shm-size="1G" \
   -v $(pwd)/ssl:/ssl \
@@ -60,9 +60,14 @@ echo docker run -d --name $IRODS_NAME --link $POSTGRESQL_NAME \
   --privileged \
   $IRODS_IMAGE
 
-exit 0
+#exit 0
 
 set -e
+
+sleep 5
+docker exec -i $IRODS_NAME supervisorctl start irods
+docker exec -i $IRODS_NAME supervisorctl start irods-initialize
+sleep 5
 
 until docker exec -i $IRODS_NAME /usr/local/bin/healthcheck; do
   sleep 0.5
